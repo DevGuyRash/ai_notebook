@@ -1,12 +1,9 @@
-import os
-
 import pytube
 import openai
 import subprocess
 from dotenv import load_dotenv
-from os import environ
+import os
 import sys
-
 
 class Transcript:
     """
@@ -74,7 +71,7 @@ class Transcript:
         self._audio_filepath = self._audio.get_file_path()
         self._audio_filename = self._audio.default_filename
 
-    def transcribe_video(self, *args, video_url: str = "", **kwargs) -> None:
+    def transcribe_video(self, video_url: str = "", *args, **kwargs) -> None:
         """
         Transcribes a YouTube video to text using OpenAIs Whisper
 
@@ -120,7 +117,9 @@ class Transcript:
             self.print_transcript()
         finally:
             audio_file.close()
-            self._delete_audio_linux()
+            print("Removing audio file...")
+            os.remove(self._audio_filepath)
+            print(f"Audio file removed at: {self._audio_filepath}")
 
     def save_transcript(self) -> None:
         """Saves `transcript` to a text file at `transcript_filepath`"""
@@ -141,18 +140,6 @@ class Transcript:
         print("Downloading audio file...")
         self._audio.download(*args, **kwargs)
         print("Audio file downloaded.")
-
-    def _delete_audio_linux(self) -> None:
-        """Unix-compatible method to remove audio file."""
-        print("Removing audio file...")
-        subprocess.run(f'rm -f ./"{self._audio_filename}"', shell=True)
-        print(f"Audio file removed at: {self._audio_filepath}")
-
-    def _delete_audio_windows(self) -> None:
-        """Windows-compatible method to remove audio file."""
-        print("Removing audio file...")
-        subprocess.run(f'del ./"{self._audio_filename}"', shell=True)
-        print(f"Audio file removed at: {self._audio_filepath}")
 
     def set_api_key(self, api_key: str = "") -> None:
         self._environment.set_openai_api_key(api_key)
@@ -177,8 +164,8 @@ class Environment:
     def __init__(self):
         # Load environment variables
         self.env_file_exists = load_dotenv()
-        self._API_KEY = environ.get("OPENAI_API_KEY") or ""
         self.environment = os.environ
+        self._API_KEY = self.environment.get("OPENAI_API_KEY") or ""
         self.args = sys.argv
         self.args_length = len(self.args)
 
@@ -193,17 +180,20 @@ class Environment:
     def set_openai_api_key(self, api_key: str = "") -> None:
         """Sets openai api key and prompts user if one doesn't exist."""
         if api_key:
+            # API key was manually passed to method.
             self._set_api_key(api_key)
             openai.api_key = self.get_api_key()
         elif self.env_file_exists:
+            # API key was not manually passed, but a .env file exists
             openai.api_key = self.get_api_key()
         else:
+            # No passed API key and no .env file
             self._set_api_key(input("Enter your api key: "))
 
         openai.api_key = self.get_api_key()
 
 
 if __name__ == "__main__":
-    e = Transcript()
-    e.set_api_key()
-    e.transcribe_video()
+    transcript = Transcript()
+    transcript.set_api_key()
+    transcript.transcribe_video("https://www.youtube.com/watch?v=-LIIf7E-qFI")
